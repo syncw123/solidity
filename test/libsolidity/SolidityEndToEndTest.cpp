@@ -81,7 +81,7 @@ struct SolidityEndToEndTestExecutionFramework: public SolidityExecutionFramework
 
 BOOST_FIXTURE_TEST_SUITE(SolidityEndToEndTest, SolidityEndToEndTestExecutionFramework)
 
-int constexpr roundTo32(int _num)
+unsigned constexpr roundTo32(unsigned _num)
 {
 	return (_num + 31) / 32 * 32;
 }
@@ -2220,7 +2220,7 @@ BOOST_AUTO_TEST_CASE(event_indexed_string)
 	BOOST_CHECK_EQUAL(logAddress(0), m_contractAddress);
 	string dynx(90, 0);
 	for (size_t i = 0; i < dynx.size(); ++i)
-		dynx[i] = i;
+		dynx[i] = static_cast<char>(i);
 	BOOST_CHECK(logData(0) == bytes());
 	BOOST_REQUIRE_EQUAL(numLogTopics(0), 3);
 	BOOST_CHECK_EQUAL(logTopic(0, 1), util::keccak256(dynx));
@@ -4333,7 +4333,7 @@ BOOST_AUTO_TEST_CASE(nested_string_as_public_mapping_key)
 		ABI_CHECK(callContractFunction(
 			"set(string,string,uint256)",
 			u256(0x60),
-			u256(roundTo32(0x80 + strings[i].size())),
+			u256(roundTo32(static_cast<unsigned>(0x80 + strings[i].size()))),
 			u256(7 + i),
 			u256(strings[i].size()),
 			strings[i],
@@ -4344,7 +4344,7 @@ BOOST_AUTO_TEST_CASE(nested_string_as_public_mapping_key)
 		ABI_CHECK(callContractFunction(
 			"data(string,string)",
 			u256(0x40),
-			u256(roundTo32(0x60 + strings[i].size())),
+			u256(roundTo32(static_cast<unsigned>(0x60 + strings[i].size()))),
 			u256(strings[i].size()),
 			strings[i],
 			u256(strings[i+1].size()),
@@ -4397,7 +4397,7 @@ BOOST_AUTO_TEST_CASE(nested_mixed_string_as_public_mapping_key)
 			u256(0xA0),
 			u256(data[i].s2),
 			u256(data[i].s3),
-			u256(roundTo32(0xC0 + data[i].s1.size())),
+			u256(roundTo32(static_cast<unsigned>(0xC0 + data[i].s1.size()))),
 			u256(i - 3),
 			u256(data[i].s1.size()),
 			data[i].s1,
@@ -4410,7 +4410,7 @@ BOOST_AUTO_TEST_CASE(nested_mixed_string_as_public_mapping_key)
 			u256(0x80),
 			u256(data[i].s2),
 			u256(data[i].s3),
-			u256(roundTo32(0xA0 + data[i].s1.size())),
+			u256(roundTo32(static_cast<unsigned>(0xA0 + data[i].s1.size()))),
 			u256(data[i].s1.size()),
 			data[i].s1,
 			u256(data[i].s4.size()),

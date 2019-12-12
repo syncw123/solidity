@@ -40,7 +40,7 @@ std::string readFileAsString(std::string const& _file);
 std::string readStandardInput();
 
 /// Retrieve and returns a character from standard input (without waiting for EOL).
-int readStandardInputChar();
+char readStandardInputChar();
 
 /// Converts arbitrary value to string representation using std::stringstream.
 template <class T>

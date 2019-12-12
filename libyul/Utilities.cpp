@@ -49,7 +49,7 @@ string solidity::yul::reindent(string const& _code)
 		auto const e = i == _s.npos ? end(_s) : next(begin(_s), static_cast<ptrdiff_t>(i));
 		auto const opening = count_if(begin(_s), e, [](auto ch) { return ch == '{' || ch == '('; });
 		auto const closing = count_if(begin(_s), e, [](auto ch) { return ch == '}' || ch == ')'; });
-		return opening - closing;
+		return int(opening - closing);
 	};
 
 	vector<string> lines;
@@ -69,7 +69,7 @@ string solidity::yul::reindent(string const& _code)
 
 	for (string const& line: lines)
 	{
-		int const diff = countBraces(line);
+		auto const diff = countBraces(line);
 		if (diff < 0)
 			depth += diff;
 
