@@ -587,7 +587,7 @@ bool CommandLineInterface::readInputFilesAndConfigureRemappings()
 				addStdin = true;
 			else
 			{
-				auto const infile = m_basePath / path;
+				auto const infile = m_basePath / path; //boost::filesystem::path(path);
 				if (!boost::filesystem::exists(infile))
 				{
 					if (!ignoreMissing)
@@ -615,10 +615,13 @@ bool CommandLineInterface::readInputFilesAndConfigureRemappings()
 				}
 
 				// NOTE: we ignore the FileNotFound exception as we manually check above
-				m_sourceCodes[infile.generic_string()] = readFileAsString(infile.string());
+				m_sourceCodes[path] = readFileAsString(infile.string());
 				path = boost::filesystem::canonical(infile).string();
+				sout() << "allowedpath: " << path << "\n";
 			}
 			m_allowedDirectories.push_back(boost::filesystem::path(path).remove_filename());
+			if (!m_basePath.empty())
+				m_allowedDirectories.push_back(boost::filesystem::canonical(m_basePath));
 		}
 	if (addStdin)
 		m_sourceCodes[g_stdinFileName] = readStandardInput();
@@ -1122,8 +1125,6 @@ bool CommandLineInterface::processInput()
 	{
 		try
 		{
-			sout() << "Requested path: " << _path << "\n";
-
 			if (_kind != ReadCallback::kindString(ReadCallback::Kind::ReadFile))
 				BOOST_THROW_EXCEPTION(InternalCompilerError() << errinfo_comment(
 					"ReadFile callback used as callback kind " +
@@ -1133,11 +1134,17 @@ bool CommandLineInterface::processInput()
 			if (validPath.find("file://") == 0)
 				validPath.erase(0, 7);
 
+			sout() << "Requested path: " << _path << "\n";
+			sout() << "BasePath: " << m_basePath << "\n";
+			sout() << "validPath: " << validPath << "\n";
 			auto const path = m_basePath / validPath;
+			sout() << "Path: " << path.string() << "\n";
 			auto canonicalPath = boost::filesystem::weakly_canonical(path);
+			sout() << "Canonical path: " << canonicalPath.string() << "\n";
 			bool isAllowed = false;
 			for (auto const& allowedDir: m_allowedDirectories)
 			{
+				sout() << "Comparing against allowed: " << allowedDir.string() << "\n";
 				// If dir is a prefix of boostPath, we are fine.
 				if (
 					std::distance(allowedDir.begin(), allowedDir.end()) <= std::distance(canonicalPath.begin(), canonicalPath.end()) &&
@@ -1150,8 +1157,6 @@ bool CommandLineInterface::processInput()
 			}
 			if (!isAllowed)
 				return ReadCallback::Result{false, "File outside of allowed directories."};
-
-			sout() << "Canonical path: " << canonicalPath.string() << "\n";
 
 			if (!boost::filesystem::exists(canonicalPath))
 				return ReadCallback::Result{false, "File not found."};
