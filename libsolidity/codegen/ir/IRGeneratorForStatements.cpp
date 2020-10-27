@@ -46,6 +46,7 @@
 #include <libsolutil/FunctionSelector.h>
 #include <libsolutil/Visitor.h>
 
+#include <boost/algorithm/string/replace.hpp>
 #include <boost/range/adaptor/transformed.hpp>
 
 using namespace std;
@@ -760,12 +761,18 @@ void IRGeneratorForStatements::endVisit(FunctionCall const& _functionCall)
 
 	if (functionCallKind == FunctionCallKind::TypeConversion)
 	{
-		solAssert(
-			_functionCall.expression().annotation().type->category() == Type::Category::TypeType,
-			"Expected category to be TypeType"
-		);
 		solAssert(_functionCall.arguments().size() == 1, "Expected one argument for type conversion");
-		define(_functionCall, *_functionCall.arguments().front());
+		Type const* fromType = _functionCall.arguments().front()->annotation().type;
+		Type const* toType = _functionCall.expression().annotation().type;
+
+		solAssert(toType->category() == Type::Category::TypeType, "Expected category to be TypeType");
+		Type const* toActualType = dynamic_cast<TypeType const*>(toType)->actualType();
+
+		if (fromType->category() == Type::Category::TypeType && toActualType->category() == Type::Category::Address)
+			define(_functionCall) << linkerSymbol(dynamic_cast<TypeType const&>(*fromType)) << "\n";
+		else
+			define(_functionCall, *_functionCall.arguments().front());
+
 		return;
 	}
 
@@ -2958,4 +2965,21 @@ bool IRGeneratorForStatements::visit(TryCatchClause const& _clause)
 void IRGeneratorForStatements::setLocation(ASTNode const& _node)
 {
 	m_currentLocation = _node.location();
+}
+
+string IRGeneratorForStatements::linkerSymbol(TypeType const& _libraryTypeType) const
+{
+	ContractType const* contractType = dynamic_cast<ContractType const*>(_libraryTypeType.actualType());
+	solAssert(contractType, "");
+	return linkerSymbol(*contractType);
+}
+
+string IRGeneratorForStatements::linkerSymbol(ContractType const& _libraryType) const
+{
+	solAssert(_libraryType.contractDefinition().isLibrary(), "");
+
+	string escapedFullyQualifiedName = _libraryType.contractDefinition().fullyQualifiedName();
+	boost::replace_all(escapedFullyQualifiedName, "\"", "\\\"");
+
+	return "linkersymbol(\"" + escapedFullyQualifiedName + "\")";
 }

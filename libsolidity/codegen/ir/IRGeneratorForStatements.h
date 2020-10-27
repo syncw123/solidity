@@ -184,6 +184,9 @@ private:
 
 	void setLocation(ASTNode const& _node);
 
+	std::string linkerSymbol(TypeType const& _libraryTypeType) const;
+	std::string linkerSymbol(ContractType const& _libraryType) const;
+
 	std::ostringstream m_code;
 	IRGenerationContext& m_context;
 	YulUtilFunctions& m_utils;
