@@ -1269,6 +1269,9 @@ void CompilerStack::generateEVMFromIR(ContractDefinition const& _contract)
 	if (m_hasError)
 		BOOST_THROW_EXCEPTION(CompilerError() << errinfo_comment("Called generateEVMFromIR with errors."));
 
+	if (!_contract.canBeDeployed())
+		return;
+
 	Contract& compiledContract = m_contracts.at(_contract.fullyQualifiedName());
 	solAssert(!compiledContract.yulIROptimized.empty(), "");
 	if (!compiledContract.object.bytecode.empty())
@@ -1295,6 +1298,9 @@ void CompilerStack::generateEwasm(ContractDefinition const& _contract)
 	solAssert(m_stackState >= AnalysisPerformed, "");
 	if (m_hasError)
 		BOOST_THROW_EXCEPTION(CompilerError() << errinfo_comment("Called generateEwasm with errors."));
+
+	if (!_contract.canBeDeployed())
+		return;
 
 	Contract& compiledContract = m_contracts.at(_contract.fullyQualifiedName());
 	solAssert(!compiledContract.yulIROptimized.empty(), "");
