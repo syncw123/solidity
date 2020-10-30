@@ -45,7 +45,6 @@
 
 #include <liblangutil/Exceptions.h>
 #include <liblangutil/Scanner.h>
-#include <liblangutil/SourceReferenceFormatter.h>
 #include <liblangutil/SourceReferenceFormatterHuman.h>
 
 #include <libsmtutil/Exceptions.h>
@@ -187,7 +186,6 @@ static string const g_strIgnoreMissingFiles = "ignore-missing";
 static string const g_strColor = "color";
 static string const g_strNoColor = "no-color";
 static string const g_strErrorIds = "error-codes";
-static string const g_strOldReporter = "old-reporter";
 
 static string const g_argAbi = g_strAbi;
 static string const g_argPrettyJson = g_strPrettyJson;
@@ -235,7 +233,6 @@ static string const g_argIgnoreMissingFiles = g_strIgnoreMissingFiles;
 static string const g_argColor = g_strColor;
 static string const g_argNoColor = g_strNoColor;
 static string const g_argErrorIds = g_strErrorIds;
-static string const g_argOldReporter = g_strOldReporter;
 
 /// Possible arguments to for --combined-json
 static set<string> const g_combinedJsonArgs
@@ -922,10 +919,6 @@ General Information)").c_str(),
 			g_argErrorIds.c_str(),
 			"Output error codes."
 		)
-		(
-			g_argOldReporter.c_str(),
-			"Enables old diagnostics reporter (legacy option, will be removed)."
-		)
 	;
 	desc.add(outputFormatting);
 
@@ -1437,11 +1430,7 @@ bool CommandLineInterface::processInput()
 
 	m_compiler = make_unique<CompilerStack>(fileReader);
 
-	unique_ptr<SourceReferenceFormatter> formatter;
-	if (m_args.count(g_argOldReporter))
-		formatter = make_unique<SourceReferenceFormatter>(serr(false));
-	else
-		formatter = make_unique<SourceReferenceFormatterHuman>(serr(false), m_coloredOutput, m_withErrorIds);
+	SourceReferenceFormatterHuman formatter(serr(false), m_coloredOutput, m_withErrorIds);
 
 	try
 	{
@@ -1499,7 +1488,7 @@ bool CommandLineInterface::processInput()
 				if (!m_compiler->analyze())
 				{
 					for (auto const& error: m_compiler->errors())
-						formatter->printErrorInformation(*error);
+						formatter.printErrorInformation(*error);
 					astAssert(false, "Analysis of the AST failed");
 				}
 			}
@@ -1521,7 +1510,7 @@ bool CommandLineInterface::processInput()
 		for (auto const& error: m_compiler->errors())
 		{
 			g_hasOutput = true;
-			formatter->printErrorInformation(*error);
+			formatter.printErrorInformation(*error);
 		}
 
 		if (!successful)
@@ -1535,7 +1524,7 @@ bool CommandLineInterface::processInput()
 	catch (CompilerError const& _exception)
 	{
 		g_hasOutput = true;
-		formatter->printExceptionInformation(_exception, "Compiler error");
+		formatter.printExceptionInformation(_exception, "Compiler error");
 		return false;
 	}
 	catch (InternalCompilerError const& _exception)
@@ -1569,7 +1558,7 @@ bool CommandLineInterface::processInput()
 		else
 		{
 			g_hasOutput = true;
-			formatter->printExceptionInformation(_error, _error.typeName());
+			formatter.printExceptionInformation(_error, _error.typeName());
 		}
 
 		return false;
@@ -1870,16 +1859,12 @@ bool CommandLineInterface::assemble(
 	for (auto const& sourceAndStack: assemblyStacks)
 	{
 		auto const& stack = sourceAndStack.second;
-		unique_ptr<SourceReferenceFormatter> formatter;
-		if (m_args.count(g_argOldReporter))
-			formatter = make_unique<SourceReferenceFormatter>(serr(false));
-		else
-			formatter = make_unique<SourceReferenceFormatterHuman>(serr(false), m_coloredOutput, m_withErrorIds);
+		SourceReferenceFormatterHuman formatter(serr(false), m_coloredOutput, m_withErrorIds);
 
 		for (auto const& error: stack.errors())
 		{
 			g_hasOutput = true;
-			formatter->printErrorInformation(*error);
+			formatter.printErrorInformation(*error);
 		}
 		if (!Error::containsOnlyWarnings(stack.errors()))
 			successful = false;
