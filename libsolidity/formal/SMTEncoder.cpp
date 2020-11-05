@@ -334,18 +334,12 @@ void SMTEncoder::endVisit(VariableDeclarationStatement const& _varDecl)
 					assignment(*declarations.at(i), symbTuple->component(i, components.at(i), declarations.at(i)->type()));
 		}
 	}
-	else if (m_context.knownVariable(*_varDecl.declarations().front()))
+	else
 	{
+		solAssert(m_context.knownVariable(*_varDecl.declarations().front()), "");
 		if (_varDecl.initialValue())
 			assignment(*_varDecl.declarations().front(), *_varDecl.initialValue());
 	}
-	else
-		m_errorReporter.warning(
-			7186_error,
-			_varDecl.location(),
-			"Assertion checker does not yet implement such variable declarations."
-		);
-
 }
 
 bool SMTEncoder::visit(Assignment const& _assignment)
@@ -508,11 +502,7 @@ void SMTEncoder::endVisit(UnaryOperation const& _op)
 			indexOrMemberAssignment(*subExpr, newValue);
 		}
 		else
-			m_errorReporter.warning(
-				1950_error,
-				_op.location(),
-				"Assertion checker does not yet implement such increments / decrements."
-			);
+			solAssert(false, "");
 
 		break;
 	}
@@ -546,11 +536,7 @@ void SMTEncoder::endVisit(UnaryOperation const& _op)
 		break;
 	}
 	default:
-		m_errorReporter.warning(
-			3682_error,
-			_op.location(),
-			"Assertion checker does not yet implement this operator."
-		);
+		solAssert(false, "");
 	}
 }
 
@@ -587,11 +573,7 @@ void SMTEncoder::endVisit(BinaryOperation const& _op)
 	else if (TokenTraits::isBitOp(_op.getOperator()) || TokenTraits::isShiftOp(_op.getOperator()))
 		bitwiseOperation(_op);
 	else
-		m_errorReporter.warning(
-			3876_error,
-			_op.location(),
-			"Assertion checker does not yet implement this operator."
-		);
+		solAssert(false, "");
 }
 
 bool SMTEncoder::visit(Conditional const& _op)
@@ -1040,15 +1022,7 @@ void SMTEncoder::endVisit(Literal const& _literal)
 		);
 	}
 	else
-	{
-		m_errorReporter.warning(
-			7885_error,
-			_literal.location(),
-			"Assertion checker does not yet support the type of this literal (" +
-			_literal.annotation().type->toString() +
-			")."
-		);
-	}
+		solAssert(false, "");
 }
 
 void SMTEncoder::addArrayLiteralAssertions(
@@ -1126,11 +1100,8 @@ bool SMTEncoder::visit(MemberAccess const& _memberAccess)
 				);
 		}
 		else
-			m_errorReporter.warning(
-				9551_error,
-				_memberAccess.location(),
-				"Assertion checker does not yet support this expression."
-			);
+			solAssert(false, "");
+
 		return false;
 	}
 	else if (smt::isNonRecursiveStruct(*exprType))
@@ -1524,40 +1495,32 @@ void SMTEncoder::arithmeticOperation(BinaryOperation const& _op)
 {
 	auto type = _op.annotation().commonType;
 	solAssert(type, "");
-	if (type->category() == Type::Category::Integer || type->category() == Type::Category::FixedPoint)
+	solAssert(type->category() == Type::Category::Integer || type->category() == Type::Category::FixedPoint, "");
+	switch (_op.getOperator())
 	{
-		switch (_op.getOperator())
-		{
-		case Token::Add:
-		case Token::Sub:
-		case Token::Mul:
-		case Token::Div:
-		case Token::Mod:
-		{
-			auto values = arithmeticOperation(
-				_op.getOperator(),
-				expr(_op.leftExpression()),
-				expr(_op.rightExpression()),
-				_op.annotation().commonType,
-				_op
-			);
-			defineExpr(_op, values.first);
-			break;
-		}
-		default:
-			m_errorReporter.warning(
-				5188_error,
-				_op.location(),
-				"Assertion checker does not yet implement this operator."
-			);
-		}
-	}
-	else
-		m_errorReporter.warning(
-			9011_error,
-			_op.location(),
-			"Assertion checker does not yet implement this operator for type " + type->richIdentifier() + "."
+	case Token::Add:
+	case Token::Sub:
+	case Token::Mul:
+	case Token::Div:
+	case Token::Mod:
+	{
+		auto values = arithmeticOperation(
+			_op.getOperator(),
+			expr(_op.leftExpression()),
+			expr(_op.rightExpression()),
+			_op.annotation().commonType,
+			_op
 		);
+		defineExpr(_op, values.first);
+		break;
+	}
+	default:
+		m_errorReporter.warning(
+			5188_error,
+			_op.location(),
+			"Assertion checker does not yet implement this operator."
+		);
+	}
 }
 
 pair<smtutil::Expression, smtutil::Expression> SMTEncoder::arithmeticOperation(
@@ -1746,29 +1709,21 @@ void SMTEncoder::booleanOperation(BinaryOperation const& _op)
 {
 	solAssert(_op.getOperator() == Token::And || _op.getOperator() == Token::Or, "");
 	solAssert(_op.annotation().commonType, "");
-	if (_op.annotation().commonType->category() == Type::Category::Bool)
+	solAssert(_op.annotation().commonType->category() == Type::Category::Bool, "");
+	// @TODO check that both of them are not constant
+	_op.leftExpression().accept(*this);
+	if (_op.getOperator() == Token::And)
 	{
-		// @TODO check that both of them are not constant
-		_op.leftExpression().accept(*this);
-		if (_op.getOperator() == Token::And)
-		{
-			auto indicesAfterSecond = visitBranch(&_op.rightExpression(), expr(_op.leftExpression()));
-			mergeVariables(touchedVariables(_op.rightExpression()), !expr(_op.leftExpression()), copyVariableIndices(), indicesAfterSecond);
-			defineExpr(_op, expr(_op.leftExpression()) && expr(_op.rightExpression()));
-		}
-		else
-		{
-			auto indicesAfterSecond = visitBranch(&_op.rightExpression(), !expr(_op.leftExpression()));
-			mergeVariables(touchedVariables(_op.rightExpression()), expr(_op.leftExpression()), copyVariableIndices(), indicesAfterSecond);
-			defineExpr(_op, expr(_op.leftExpression()) || expr(_op.rightExpression()));
-		}
+		auto indicesAfterSecond = visitBranch(&_op.rightExpression(), expr(_op.leftExpression()));
+		mergeVariables(touchedVariables(_op.rightExpression()), !expr(_op.leftExpression()), copyVariableIndices(), indicesAfterSecond);
+		defineExpr(_op, expr(_op.leftExpression()) && expr(_op.rightExpression()));
 	}
 	else
-		m_errorReporter.warning(
-			3263_error,
-			_op.location(),
-			"Assertion checker does not yet implement the type " + _op.annotation().commonType->toString() + " for boolean operations"
-		);
+	{
+		auto indicesAfterSecond = visitBranch(&_op.rightExpression(), !expr(_op.leftExpression()));
+		mergeVariables(touchedVariables(_op.rightExpression()), expr(_op.leftExpression()), copyVariableIndices(), indicesAfterSecond);
+		defineExpr(_op, expr(_op.leftExpression()) || expr(_op.rightExpression()));
+	}
 }
 
 void SMTEncoder::bitwiseOperation(BinaryOperation const& _op)
