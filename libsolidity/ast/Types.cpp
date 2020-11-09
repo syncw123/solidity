@@ -443,13 +443,22 @@ BoolResult AddressType::isImplicitlyConvertibleTo(Type const& _other) const
 
 BoolResult AddressType::isExplicitlyConvertibleTo(Type const& _convertTo) const
 {
-	if (_convertTo.category() == category())
+	if ((_convertTo.category() == category()) || isImplicitlyConvertibleTo(_convertTo))
 		return true;
 	else if (auto const* contractType = dynamic_cast<ContractType const*>(&_convertTo))
 		return (m_stateMutability >= StateMutability::Payable) || !contractType->isPayable();
-	return isImplicitlyConvertibleTo(_convertTo) ||
-		_convertTo.category() == Category::Integer ||
-		(_convertTo.category() == Category::FixedBytes && 160 == dynamic_cast<FixedBytesType const&>(_convertTo).numBytes() * 8);
+	else if (auto integerType = dynamic_cast<IntegerType const*>(&_convertTo))
+	{
+		if (!integerType->isSigned() && integerType->numBits() == 160)
+			return true;
+	}
+	else if (
+		(_convertTo.category() == Category::FixedBytes) &&
+		(160 == dynamic_cast<FixedBytesType const&>(_convertTo).numBytes() * 8)
+	)
+		return true;
+
+	return false;
 }
 
 string AddressType::toString(bool) const
@@ -566,12 +575,30 @@ BoolResult IntegerType::isImplicitlyConvertibleTo(Type const& _convertTo) const
 
 BoolResult IntegerType::isExplicitlyConvertibleTo(Type const& _convertTo) const
 {
-	return _convertTo.category() == category() ||
-		_convertTo.category() == Category::Address ||
-		_convertTo.category() == Category::Contract ||
-		_convertTo.category() == Category::Enum ||
-		(_convertTo.category() == Category::FixedBytes && numBits() == dynamic_cast<FixedBytesType const&>(_convertTo).numBytes() * 8) ||
-		_convertTo.category() == Category::FixedPoint;
+	if (auto integerType = dynamic_cast<IntegerType const*>(&_convertTo))
+	{
+		if (
+			(numBits() == integerType->numBits()) ||
+			(isSigned() == integerType->isSigned())
+		)
+			return true;
+	}
+	else if (_convertTo.category() == Category::Address)
+	{
+		if (!isSigned() && numBits() == 160)
+			return true;
+	}
+	else if (auto fixedBytesType = dynamic_cast<FixedBytesType const*>(&_convertTo))
+	{
+		if (!isSigned() && (numBits() == fixedBytesType->numBytes() * 8))
+			return true;
+	}
+	else if (dynamic_cast<EnumType const*>(&_convertTo))
+		return true;
+	else if (_convertTo.category() == Category::FixedPoint)
+		return true;
+
+	return false;
 }
 
 TypeResult IntegerType::unaryOperatorResult(Token _operator) const
@@ -975,6 +1002,7 @@ BoolResult RationalNumberType::isExplicitlyConvertibleTo(Type const& _convertTo)
 	{
 		if (isNegative() || isFractional() || integerType()->numBits() > 160)
 			return false;
+		return true;
 	}
 	else if (category == Category::Integer)
 		return false;
@@ -1446,10 +1474,19 @@ BoolResult FixedBytesType::isImplicitlyConvertibleTo(Type const& _convertTo) con
 
 BoolResult FixedBytesType::isExplicitlyConvertibleTo(Type const& _convertTo) const
 {
-	return (_convertTo.category() == Category::Integer && numBytes() * 8 == dynamic_cast<IntegerType const&>(_convertTo).numBits()) ||
-		(_convertTo.category() == Category::Address && numBytes() == 20) ||
-		_convertTo.category() == Category::FixedPoint ||
-		_convertTo.category() == category();
+	if (_convertTo.category() == category())
+		return true;
+	else if (auto integerType = dynamic_cast<IntegerType const*>(&_convertTo))
+	{
+		if (!integerType->isSigned() && integerType->numBits() == numBytes() * 8)
+			return true;
+	}
+	else if (_convertTo.category() == Category::Address && numBytes() == 20)
+		return true;
+	else if (_convertTo.category() == Category::FixedPoint)
+		return true;
+
+	return false;
 }
 
 TypeResult FixedBytesType::unaryOperatorResult(Token _operator) const
@@ -2676,7 +2713,11 @@ size_t EnumType::numberOfMembers() const
 
 BoolResult EnumType::isExplicitlyConvertibleTo(Type const& _convertTo) const
 {
-	return _convertTo == *this || _convertTo.category() == Category::Integer;
+	if (_convertTo == *this)
+		return true;
+	else if (dynamic_cast<IntegerType const*>(&_convertTo))
+		return true;
+	return false;
 }
 
 unsigned EnumType::memberValue(ASTString const& _member) const
