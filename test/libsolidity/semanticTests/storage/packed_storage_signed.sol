@@ -13,9 +13,9 @@ contract C {
             b = (0 - uint8(a)) * 2;
             c = a * int8(120) * int8(121);
         }
-        x1 = uint256(a);
+        x1 = uint256(uint8(a));
         x2 = b;
-        x3 = uint256(c);
+        x3 = uint256(uint8(c));
         x4 = d;
     }
 }
@@ -23,4 +23,4 @@ contract C {
 // ====
 // compileViaYul: also
 // ----
-// test() -> -2, 4, -112, 0
+// test() -> 0xfe, 4, 0x90, 0
