@@ -2058,7 +2058,9 @@ string YulUtilFunctions::readFromStorage(Type const& _type, size_t _offset, bool
 
 string YulUtilFunctions::readFromStorageDynamic(Type const& _type, bool _splitFunctionTypes)
 {
-	solAssert(_type.isValueType(), "");
+	// TODO it can be that this has to be fixed at the caller site and this should be turned
+	// into a regular assertion.
+	solUnimplementedAssert(_type.isValueType(), "");
 	return readFromStorageValueType(_type, {}, _splitFunctionTypes);
 }
 
@@ -2204,7 +2206,8 @@ string YulUtilFunctions::updateStorageValueFunction(
 		{
 			auto const* toReferenceType = dynamic_cast<ReferenceType const*>(&_toType);
 			auto const* fromReferenceType = dynamic_cast<ReferenceType const*>(&_fromType);
-			solAssert(fromReferenceType && toReferenceType, "");
+			// TODO it can be that this should be a regular assert.
+			solUnimplementedAssert(fromReferenceType && toReferenceType, "");
 			solAssert(*toReferenceType->copyForLocation(
 				fromReferenceType->location(),
 				fromReferenceType->isPointer()
