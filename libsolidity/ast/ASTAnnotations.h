@@ -301,6 +301,9 @@ struct FunctionCallAnnotation: ExpressionAnnotation
 	util::SetOnce<FunctionCallKind> kind;
 	/// If true, this is the external call of a try statement.
 	bool tryCall = false;
+	/// If call does not use named arguments, this is the same as arguments().
+	/// Otherwise, this sorts the named arguments appropriately.
+	util::SetOnce<std::vector<Expression const*>> sortedArguments;
 };
 
 }

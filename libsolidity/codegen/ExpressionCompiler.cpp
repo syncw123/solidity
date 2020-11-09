@@ -540,25 +540,13 @@ bool ExpressionCompiler::visit(FunctionCall const& _functionCall)
 
 	TypePointers parameterTypes = functionType->parameterTypes();
 	vector<ASTPointer<Expression const>> const& callArguments = _functionCall.arguments();
-	vector<ASTPointer<ASTString>> const& callArgumentNames = _functionCall.names();
+
+	solAssert(_functionCall.annotation().sortedArguments.set(), "");
+	vector<Expression const*> const& arguments = *_functionCall.annotation().sortedArguments;
+	solAssert(arguments.size() == callArguments.size(), "");
+
 	if (!functionType->takesArbitraryParameters())
 		solAssert(callArguments.size() == parameterTypes.size(), "");
-
-	vector<ASTPointer<Expression const>> arguments;
-	if (callArgumentNames.empty())
-		// normal arguments
-		arguments = callArguments;
-	else
-		// named arguments
-		for (auto const& parameterName: functionType->parameterNames())
-		{
-			bool found = false;
-			for (size_t j = 0; j < callArgumentNames.size() && !found; j++)
-				if ((found = (parameterName == *callArgumentNames[j])))
-					// we found the actual parameter position
-					arguments.push_back(callArguments[j]);
-			solAssert(found, "");
-		}
 
 	if (functionCallKind == FunctionCallKind::StructConstructorCall)
 	{
@@ -2242,7 +2230,7 @@ void ExpressionCompiler::appendExpOperatorCode(Type const& _valueType, Type cons
 
 void ExpressionCompiler::appendExternalFunctionCall(
 	FunctionType const& _functionType,
-	vector<ASTPointer<Expression const>> const& _arguments,
+	vector<Expression const*> const& _arguments,
 	bool _tryCall
 )
 {

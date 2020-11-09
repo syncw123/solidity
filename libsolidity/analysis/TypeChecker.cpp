@@ -2179,6 +2179,8 @@ void TypeChecker::typeCheckFunctionGeneralChecks(
 		}
 	}
 
+	_functionCall.annotation().sortedArguments = paramArgMap;
+
 	TypePointers const& returnParameterTypes = _functionType->returnParameterTypes();
 	bool isLibraryCall = (_functionType->kind() == FunctionType::Kind::DelegateCall);
 	bool callRequiresABIEncoding =
