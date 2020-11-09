@@ -252,6 +252,8 @@ private:
 	/// nondeterministically.
 	std::map<ContractDefinition const*, Predicate const*> m_nondetInterfaces;
 
+	std::map<ContractDefinition const*, Predicate const*> m_constructorSummaries;
+
 	/// Artificial Error predicate.
 	/// Single error block for all assertions.
 	Predicate const* m_errorPredicate = nullptr;

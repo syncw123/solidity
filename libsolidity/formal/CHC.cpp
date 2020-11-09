@@ -120,12 +120,14 @@ bool CHC::visit(ContractDefinition const& _contract)
 	clearIndices(&_contract);
 
 	solAssert(m_currentContract, "");
+	/*
 	m_constructorSummaryPredicate = createSymbolicBlock(
 		constructorSort(*m_currentContract, state()),
 		"summary_constructor_" + contractSuffix(_contract),
 		PredicateType::ConstructorSummary,
 		&_contract
 	);
+	*/
 
 	SMTEncoder::visit(_contract);
 	return false;
@@ -145,14 +147,55 @@ void CHC::endVisit(ContractDefinition const& _contract)
 	);
 	setCurrentBlock(*implicitConstructorPredicate);
 
+	for (auto inh: _contract.baseContracts())
+	{
+		if (!inh)
+			continue;
+
+		auto const& base = dynamic_cast<ContractDefinition const&>(*inh->name().annotation().referencedDeclaration);
+		auto constructor = base.constructor();
+		Predicate const& basePred = *m_constructorSummaries.at(&base);
+
+		vector<smtutil::Expression> baseArgs;
+		if (auto args = inh->arguments())
+			baseArgs = applyMap(*args, [this](auto _var) { return expr(*_var); });
+
+		errorFlag().increaseIndex();
+		for (auto var: stateVariablesIncludingInheritedAndPrivate(base))
+			m_context.variable(*var)->increaseIndex();
+		auto state1 = state().state();
+		auto stateVars1 = currentStateVariables(base);
+		for (auto var: stateVariablesIncludingInheritedAndPrivate(base))
+			m_context.variable(*var)->increaseIndex();
+		state().newState();
+		auto state2 = state().state();
+		auto stateVars2 = currentStateVariables(base);
+
+		vector<smtutil::Expression> args{errorFlag().currentValue(), state().thisAddress(), state().crypto(), state().tx(), state1};
+		if (baseArgs.empty())
+		{
+			args.push_back(state2);
+			args += stateVars1;
+			m_context.addAssertion(basePred(args));
+		}
+		else
+		{
+			solAssert(constructor, "");
+			args += baseArgs;
+			args.push_back(state2);
+			args += stateVars2;
+			args += applyMap(constructor->parameters(), [this](auto var) { return m_context.variable(*var)->currentValue(); });
+			m_context.addAssertion(basePred(args));
+		}
+	}
+	initializeStateVariables(_contract);
 	if (auto constructor = _contract.constructor())
 		constructor->accept(*this);
-	else
-		inlineConstructorHierarchy(_contract);
 
 	connectBlocks(m_currentBlock, summary(_contract));
 
-	setCurrentBlock(*m_constructorSummaryPredicate);
+	//setCurrentBlock(*m_constructorSummaryPredicate);
+	setCurrentBlock(*m_constructorSummaries.at(&_contract));
 
 	m_queryPlaceholders[&_contract].push_back({smtutil::Expression(true), errorFlag().currentValue(), m_currentBlock});
 	connectBlocks(m_currentBlock, interface(), errorFlag().currentValue() == 0);
@@ -691,6 +734,7 @@ void CHC::resetSourceAnalysis()
 	m_summaries.clear();
 	m_interfaces.clear();
 	m_nondetInterfaces.clear();
+	m_constructorSummaries.clear();
 	Predicate::reset();
 	ArraySlicePredicate::reset();
 	m_blockCounter = 0;
@@ -803,6 +847,12 @@ void CHC::defineInterfacesAndSummaries(SourceUnit const& _source)
 			string suffix = contract->name() + "_" + to_string(contract->id());
 			m_interfaces[contract] = createSymbolicBlock(interfaceSort(*contract, state()), "interface_" + suffix, PredicateType::Interface, contract);
 			m_nondetInterfaces[contract] = createSymbolicBlock(nondetInterfaceSort(*contract, state()), "nondet_interface_" + suffix, PredicateType::NondetInterface, contract);
+			m_constructorSummaries[contract] = createSymbolicBlock(
+				constructorSort(*contract, state()),
+				"summary_constructor_" + contractSuffix(*contract),
+				PredicateType::ConstructorSummary,
+				contract
+			);
 
 			for (auto const* var: stateVariablesIncludingInheritedAndPrivate(*contract))
 				if (!m_context.knownVariable(*var))
@@ -876,7 +926,8 @@ smtutil::Expression CHC::error(unsigned _idx)
 
 smtutil::Expression CHC::summary(ContractDefinition const& _contract)
 {
-	return constructor(*m_constructorSummaryPredicate, _contract, m_context);
+	//return constructor(*m_constructorSummaryPredicate, _contract, m_context);
+	return constructor(*m_constructorSummaries.at(&_contract), _contract, m_context);
 }
 
 smtutil::Expression CHC::summary(FunctionDefinition const& _function, ContractDefinition const& _contract)
