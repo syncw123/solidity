@@ -84,7 +84,8 @@ contractBodyElement:
 	constructorDefinition
 	| functionDefinition
 	| modifierDefinition
-	| fallbackReceiveFunctionDefinition
+	| fallbackFunctionDefinition
+	| receiveFunctionDefinition
 	| structDefinition
 	| enumDefinition
 	| stateVariableDeclaration
@@ -189,20 +190,40 @@ locals[
 	(Semicolon | body=block);
 
 /**
- * Definitions of the special fallback and receive functions.
+ * Definitions of the special fallback function.
  */
-fallbackReceiveFunctionDefinition
+fallbackFunctionDefinition
 locals[
-	boolean visibilitySet = false,
 	boolean mutabilitySet = false,
+	boolean virtualSet = false,
+	boolean overrideSpecifierSet = false,
+	boolean hasParameters = false
+]
+:
+	kind=(Fallback | Receive) LParen (parameterList { $hasParameters = true; } )? RParen
+	(
+		External
+		| {!$mutabilitySet}? stateMutability {$mutabilitySet = true;}
+		| modifierInvocation
+		| {!$virtualSet}? Virtual {$virtualSet = true;}
+		| {!$overrideSpecifierSet}? overrideSpecifier {$overrideSpecifierSet = true;}
+	)*
+	( {$hasParameters}? Returns LParen returnParameters=parameterList RParen | {!$hasParameters}? )
+	(Semicolon | body=block);
+
+/**
+ * Definitions of the special receive function.
+ */
+receiveFunctionDefinition
+locals[
 	boolean virtualSet = false,
 	boolean overrideSpecifierSet = false
 ]
 :
 	kind=(Fallback | Receive) LParen RParen
 	(
-		{!$visibilitySet}? visibility {$visibilitySet = true;}
-		| {!$mutabilitySet}? stateMutability {$mutabilitySet = true;}
+		External
+		| Payable
 		| modifierInvocation
 		| {!$virtualSet}? Virtual {$virtualSet = true;}
 		| {!$overrideSpecifierSet}? overrideSpecifier {$overrideSpecifierSet = true;}
