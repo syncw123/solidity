@@ -2953,7 +2953,8 @@ string YulUtilFunctions::conversionFunction(Type const& _from, Type const& _to)
 
 string YulUtilFunctions::arrayConversionFunction(ArrayType const& _from, ArrayType const& _to)
 {
-	solUnimplementedAssert(_to.location() != DataLocation::CallData, "Conversion of calldata types not yet implemented.");
+	solAssert(_to.location() != DataLocation::CallData, "");
+
 	// Other cases are done explicitly in LValue::storeValue, and only possible by assignment.
 	if (_to.location() == DataLocation::Storage)
 		solAssert(
@@ -2962,11 +2963,7 @@ string YulUtilFunctions::arrayConversionFunction(ArrayType const& _from, ArrayTy
 			"Invalid conversion to storage type."
 		);
 	if (_to.location() == DataLocation::Memory && _from.location() == DataLocation::CallData)
-	{
-		solUnimplementedAssert(_from.isDynamicallySized(), "");
-		solUnimplementedAssert(!_from.baseType()->isDynamicallyEncoded(), "");
-		solUnimplementedAssert(_from.isByteArray() && _to.isByteArray() && _to.isDynamicallySized(), "");
-	}
+		solUnimplementedAssert(!_from.baseType()->isDynamicallySized(), "");
 
 	string functionName =
 		"convert_array_" +
@@ -2998,15 +2995,22 @@ string YulUtilFunctions::arrayConversionFunction(ArrayType const& _from, ArrayTy
 						converted := <arrayStorageToMem>(value)
 					</fromStorage>
 					<?fromCalldata>
-						converted := <allocateMemoryArray>(length)
-						<copyToMemory>(value, add(converted, 0x20), length)
+						converted := <allocateMemoryArray>(<length>)
+						<copyToMemory>(
+							value,
+							<?toDynamic>add(converted, 0x20)<!toDynamic>converted</toDynamic>,
+							mul(<length>, <sizeInBytes>)
+						)
 					</fromCalldata>
 				)")
 				("fromStorage", _from.dataStoredIn(DataLocation::Storage))
 				("fromCalldata", _from.dataStoredIn(DataLocation::CallData))
 				("allocateMemoryArray", _from.dataStoredIn(DataLocation::CallData) ? allocateMemoryArrayFunction(_to) : "")
+				("length", _from.isDynamicallySized() ? "length" : _from.length().str())
+				("toDynamic", _to.isDynamicallySized())
 				("copyToMemory", _from.dataStoredIn(DataLocation::CallData) ? copyToMemoryFunction(true) : "")
 				("arrayStorageToMem", _from.dataStoredIn(DataLocation::Storage) ? copyArrayFromStorageToMemoryFunction(_from, _to) : "")
+				("sizeInBytes", _from.dataStoredIn(DataLocation::CallData) ? to_string(_from.baseType()->calldataEncodedSize()) : "")
 				.render()
 			);
 		else
