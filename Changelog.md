@@ -3,6 +3,7 @@
 Language Features:
  * Ability to select the abi coder using ``pragma abicoder v1`` and ``pragma abicoder v2``.
  * Immutable variables with literal number values are considered pure.
+ * The fallback function can now also have a single ``calldata`` argument (equaling ``msg.data``) and return ``bytes memory`` (which will not be ABI-encoded but returned as-is).
 
 Compiler Features:
  * Command Line Interface: Report error if file could not be read in ``--standard-json`` mode.
