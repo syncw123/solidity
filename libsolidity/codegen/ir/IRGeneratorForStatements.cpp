@@ -761,17 +761,12 @@ void IRGeneratorForStatements::endVisit(FunctionCall const& _functionCall)
 
 	if (functionCallKind == FunctionCallKind::TypeConversion)
 	{
+		solAssert(
+			_functionCall.expression().annotation().type->category() == Type::Category::TypeType,
+			"Expected category to be TypeType"
+		);
 		solAssert(_functionCall.arguments().size() == 1, "Expected one argument for type conversion");
-		Type const* fromType = _functionCall.arguments().front()->annotation().type;
-		Type const* toType = _functionCall.expression().annotation().type;
-
-		solAssert(toType->category() == Type::Category::TypeType, "Expected category to be TypeType");
-		Type const* toActualType = dynamic_cast<TypeType const*>(toType)->actualType();
-
-		if (fromType->category() == Type::Category::TypeType && toActualType->category() == Type::Category::Address)
-			define(_functionCall) << linkerSymbol(dynamic_cast<TypeType const&>(*fromType)) << "\n";
-		else
-			define(_functionCall, *_functionCall.arguments().front());
+		define(_functionCall, *_functionCall.arguments().front());
 
 		return;
 	}
