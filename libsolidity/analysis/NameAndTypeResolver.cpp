@@ -509,6 +509,16 @@ bool DeclarationRegistrationHelper::registerDeclaration(
 	// We use "invisible" for both inactive variables in blocks and for members invisible in contracts.
 	// They cannot both be true at the same time.
 	solAssert(!(_inactive && !_declaration.isVisibleInContract()), "");
+
+	static set<string> illegalNames{"_", "super", "this"};
+
+	if (illegalNames.count(name))
+		_errorReporter.declarationError(
+			3726_error,
+			*_errorLocation,
+			"The name \"" + name + "\" is reserved."
+		);
+
 	if (!_container.registerDeclaration(_declaration, _name, _errorLocation, !_declaration.isVisibleInContract() || _inactive, false))
 	{
 		SourceLocation firstDeclarationLocation;
