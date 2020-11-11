@@ -51,3 +51,5 @@ New Restrictions
 * The global functions ``log0``, ``log1``, ``log2``, ``log3`` and ``log4`` have been removed.
 
   These are low-level functions that were largely unused. Their behaviour can be accessed from inline assembly.
+
+* Declarations with the name ``this``, ``super`` and ``_`` are disallowed.

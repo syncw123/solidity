@@ -10,3 +10,5 @@ contract C {
         _;
     }
 }
+// ----
+// DeclarationError 3726: (17-49): The name "_" is reserved.
