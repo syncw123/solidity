@@ -70,12 +70,26 @@ private:
 
 	void setValue(ASTNode const& _node, TypePointer const& _value);
 
+	/// Evalutes a binary expression with respect to the operator.
+	///
+	/// @returns the evaluation result or std::nulopt if the operation failed (an error has been created then already).
+	std::optional<rational> evaluateBinary(
+		rational _left,
+		rational _right,
+		Token _operator,
+		langutil::SourceLocation _location
+	);
+
 	TypePointer sourceType(ASTNode const& _node);
 	TypePointer evaluatedValue(ASTNode const& _node);
 
+	/// @return typed evaluation result or std::nullopt if not evaluated yet.
 	std::optional<TypedValue> result(ASTNode const& _node);
+
+	/// Conditionally sets the evaluation result for the given ASTNode @p _node.
 	void setResult(ASTNode const& _node, std::optional<TypedValue> _result);
 
+	/// @returns boolean indicating whether or not given ASTNode @p _node has been evaluated already or not.
 	bool evaluated(ASTNode const& _node) const noexcept;
 
 	langutil::ErrorReporter& m_errorReporter;

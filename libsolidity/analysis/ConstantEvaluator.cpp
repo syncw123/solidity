@@ -42,12 +42,82 @@ void ConstantEvaluator::endVisit(UnaryOperation const& _operation)
 		setValue(_operation, sub->unaryOperatorResult(_operation.getOperator()));
 }
 
+std::optional<rational> ConstantEvaluator::evaluateBinary(rational _left, rational _right, Token _operator, SourceLocation _location)
+{
+	switch (_operator)
+	{
+		case Token::BitOr: return _left.numerator() | _right.numerator();
+		case Token::BitAnd: return _left.numerator() & _right.numerator();
+		case Token::BitXor: return _left.numerator() ^ _right.numerator();
+		case Token::Add: return _left + _right;
+		case Token::Sub: return _left - _right;
+		case Token::Mul: return _left * _right;
+		case Token::Div:
+			 {
+				 auto const fractionalResult = _left / _right;
+				 return fractionalResult.numerator() / fractionalResult.denominator();
+			 }
+		case Token::Mod:
+			if (_right == rational(0))
+			{
+				m_errorReporter.typeError(1211_error, _location, "Division by 0.");
+				return nullopt;
+			}
+			else if (_left.denominator() == 1 && _right.denominator() == 1)
+				return _left.numerator() % _right.numerator();
+			else
+			{
+				rational const tempValue = _left / _right;
+				return _left - (tempValue.numerator() / tempValue.denominator()) * _right;
+			}
+		default:
+			std::cout << "TODO: evaluateBinary: "
+				<< _left
+				<< " " << TokenTraits::toString(_operator) << " "
+				<< _right << std::endl;
+			solAssert(false, "TODO");
+			return nullopt;
+	}
+}
+
 void ConstantEvaluator::endVisit(BinaryOperation const& _operation)
 {
 	auto left = evaluatedValue(_operation.leftExpression());
 	auto right = evaluatedValue(_operation.rightExpression());
 	if (left && right)
 	{
+		auto const leftType = result(_operation.leftExpression()).value().sourceType;
+		auto const rightType = result(_operation.rightExpression()).value().sourceType;
+
+		// TODO: Either inline evaluation INTO this class,
+		//       *or* pass the type hint into binaryOperatorResult
+#if 1
+		std::cout << "BinaryOperation:"
+			<< " left: " << leftType->toString()
+			<< " right: " << rightType->toString()
+			<< endl;
+
+		if (left->category() == Type::Category::RationalNumber &&
+			right->category() == Type::Category::RationalNumber &&
+			leftType->category() == Type::Category::Integer &&
+			rightType->category() == Type::Category::Integer)
+		{
+			printf("GETTING HERE\n");
+			auto const lhs = dynamic_cast<RationalNumberType const*>(left);
+			auto const rhs = dynamic_cast<RationalNumberType const*>(right);
+			auto const leftValue = lhs->value(); // XXX or use this?literalValue(nullptr);
+			auto const rightValue = rhs->value(); // XXX or use this?literalValue(nullptr);
+
+			solAssert(!lhs->isFractional(), "");
+			solAssert(!rhs->isFractional(), "");
+
+			auto const result = evaluateBinary(leftValue, rightValue, _operation.getOperator(), _operation.location());
+			if (result.has_value())
+				setResult(_operation, TypedValue{leftType, TypeProvider::rationalNumber(result.value())});
+			return;
+		}
+#endif
+
 		TypePointer commonType = left->binaryOperatorResult(_operation.getOperator(), right);
 		if (!commonType)
 			m_errorReporter.fatalTypeError(
@@ -99,7 +169,8 @@ void ConstantEvaluator::endVisit(Identifier const& _identifier)
 	}
 
 	// Link LHS's identifier to the evaluation result of the RHS expression.
-	setResult(_identifier, result(*value));
+	if (auto const resultOpt = result(*value); resultOpt.has_value())
+		setResult(_identifier, TypedValue{variableDeclaration->annotation().type, resultOpt.value().evaluatedValue});
 }
 
 void ConstantEvaluator::endVisit(TupleExpression const& _tuple) // TODO: do we actually ever need this code path here?
